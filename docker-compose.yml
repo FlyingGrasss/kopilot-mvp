@@ -1,0 +1,50 @@
+name: rehber
+
+services:
+  app:
+    build:
+      context: .
+    image: rehber:latest
+    environment:
+      NODE_ENV: production
+      API_PORT: "4500"
+      API_HOST: "0.0.0.0"
+      API_URL: "http://127.0.0.1:4500"
+      # Required: public web origin, e.g. https://rehber.example.com
+      APP_ORIGINS: "${APP_ORIGINS:?Set APP_ORIGINS to the public web origin}"
+      # Required: 1 behind HTTPS, 0 only for a local HTTP demo.
+      COOKIE_SECURE: "${COOKIE_SECURE:?Set COOKIE_SECURE to 1 or 0}"
+      TRUST_PROXY: "${TRUST_PROXY:-}"
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+      - "${API_HOST_PORT:-4500}:4500"
+    expose:
+      - "3000"
+      - "4500"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      # Next proxies /api/* to 127.0.0.1:4500 inside the container.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+# Local HTTP demo:
+#   APP_ORIGINS=http://localhost:3000
+#   COOKIE_SECURE=0
+#
+# Public HTTPS deployment:
+#   APP_ORIGINS=https://rehber.example.com
+#   COOKIE_SECURE=1
+#   TRUST_PROXY=1
+#
+# Next.js rewrites /api/* to the API process inside the container. The public
+# origin must match APP_ORIGINS exactly because Express validates Origin on
+# every mutating request.
+#
+# On Linux, make the bind mount writable by UID 1000 before the first start:
+#   mkdir -p data && sudo chown -R 1000:1000 data
